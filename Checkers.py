@@ -20,21 +20,25 @@ class Board():
                     ]
     def printBoard(self):
         print("\n")
+        print("  ",end ="")
+        for col in range(8):
+            print(f" {col}", end="")
         for row in range(len(self.board)):
             print(" ")
+            print(f"{row}  ", end="")
             for col in range(len(self.board[row])):
                 if self.board[row][col] == '.':
-                    print("⬜",end = '')
+                    print("· ", end="")
                 elif self.board[row][col] == 'b':
-                    print("⚫", end = '',)
+                    print("○ ", end="")
                 elif self.board[row][col] == 'r':
-                    print("🔴", end = '',)
+                    print("● ", end="")
     def getPiece(self,position):
 
     
         return self.board[position[0]][position[1]]
 
-    def movePiece(self, piecePos, movePos):
+    def movePiece(self, piecePos, movePos,legalMoves):
         piece = self.getPiece(piecePos)
 
         if piece in ('r', 'R'):
@@ -45,7 +49,6 @@ class Board():
             print("There is no piece there.")
             return
 
-        legalMoves = self.getLegalMoves(player)
 
         if (piecePos, movePos) not in legalMoves:
             print("not a move")
@@ -272,21 +275,22 @@ class Board():
         return moves
     def randOpp(self,player):
         if player =='b':
-            move = self.getLegalMoves('b')
-            rand = random.randint(0,len(move))
-            piecePos, movePos = move[rand]
-            self.movePiece(piecePos,movePos)
+            legal = self.getLegalMoves('b')
+            rand = random.randint(0,len(legal)-1)
+            piecePos, movePos = legal[rand]
+            self.movePiece(piecePos,movePos,legal)
     def startGame(self):
         stop =False
-        playerColor = input("\nPick Red or Black: ")
+        playerColor = input("\nPick White or Black: ")
         while not stop:
 
-            if playerColor == "Red":
+            if playerColor == "White":
+                legal = self.getLegalMoves('r')
                 print("Legal Moves:")
-                print(*(self.getLegalMoves('r') + self.getLegalMoves('R')), sep='\n')
+                print(*(self.getLegalMoves('r')), sep='\n')
                 piecePos = tuple(map(int, input("\nPick a Piece: ").split()))
                 movePos = tuple(map(int, input("\nTo Where?: ").split()))
-                myBoard.movePiece(piecePos, movePos)
+                myBoard.movePiece(piecePos, movePos,legal)
                 self.randOpp('b')
 
 
