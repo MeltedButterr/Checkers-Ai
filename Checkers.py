@@ -10,13 +10,13 @@ class Board:
     EMPTY = "."
 
     def __init__(self, board=None, test_position=True):
-        """Create a board.
+        # Create a board.
 
-        Args:
-            board: Optional 8x8 board to copy.
-            test_position: If True and no board is supplied, use the custom
-                multi-jump test position. If False, use the standard setup.
-        """
+        # Args:
+        #     board: Optional 8x8 board to copy.
+        #     test_position: If True and no board is supplied, use the custom
+        #         multi-jump test position. If False, use the standard setup.
+        
         if board is not None:
             self.board = [row[:] for row in board]
         elif test_position:
@@ -44,7 +44,7 @@ class Board:
             ]
 
     def copy(self):
-        """Return an independent copy of the board."""
+        # Return an independent copy of the board.
         return Board(board=self.board)
 
     def getPiece(self, position):
@@ -108,7 +108,7 @@ class Board:
         return None
 
     def getMovesFrom(self, position):
-        """Return ordinary one-step moves from a position."""
+        # Return ordinary one-step moves from a position.
         piece = self.getPiece(position)
         moves = []
 
@@ -127,7 +127,7 @@ class Board:
         return moves
 
     def getJumps(self, position):
-        """Return all legal single jumps from a position."""
+        # Return all legal single jumps from a position.
         piece = self.getPiece(position)
         opponent = self._opponents_for(piece)
         jump_moves = []
@@ -154,7 +154,7 @@ class Board:
         return jump_moves
 
     def applyStep(self, piecePos, movePos):
-        """Apply one legal movement step and return whether it crowned."""
+        # Apply one legal movement step and return whether it crowned.
         piece = self.getPiece(piecePos)
 
         if piece not in (
@@ -195,7 +195,7 @@ class Board:
         return kinged
 
     def getAllJumps(self, player):
-        """Return all legal first jumps for a player as (start, landing) pairs."""
+        # Return all legal first jumps for a player as (start, landing) pairs.
         jumps = []
 
         for row in range(self.BOARD_SIZE):
@@ -212,14 +212,12 @@ class Board:
         return jumps
 
     def getJumpSequences(self, start):
-        """Return every complete multiple-jump sequence starting at start.
+        # Return every complete multiple-jump sequence starting at start.
 
-        A returned sequence is a tuple of board positions, for example:
-            ((5, 2), (3, 4), (1, 6))
+        # A returned sequence is a tuple of board positions, for example:
+        #     ((5, 2), (3, 4), (1, 6))
 
-        This implementation treats crowning during a capture as the end of
-        the turn, matching the checkers ruleset used by this project.
-        """
+        # 
         piece = self.getPiece(start)
         if self._player_for_piece(piece) is None:
             return []
@@ -248,12 +246,12 @@ class Board:
         return sequences
 
     def getLegalTurns(self, player):
-        """Return complete legal turns for player.
+        # Return complete legal turns for player.
 
-        If any capture exists, only complete capture sequences are returned.
-        Ordinary moves are represented by two positions; multi-jumps are
-        represented by three or more positions.
-        """
+        # If any capture exists, only complete capture sequences are returned.
+        # Ordinary moves are represented by two positions; multi-jumps are
+        # represented by three or more positions.
+        
         jump_turns = []
 
         for row in range(self.BOARD_SIZE):
@@ -286,11 +284,11 @@ class Board:
         return normal_turns
 
     def getLegalMoves(self, player):
-        """Alias for getLegalTurns; moves now represent complete turns."""
+        #Alias for getLegalTurns; moves now represent complete turns.
         return self.getLegalTurns(player)
 
     def applyTurn(self, turn):
-        """Return a new board with a complete turn applied."""
+        # Return a new board with a complete turn applied.
         if not turn or len(turn) < 2:
             raise ValueError("A turn must contain at least a start and destination.")
 
@@ -325,25 +323,25 @@ class Board:
         )
 
     def isGameOver(self, player):
-        """Return True when player has no legal complete turns."""
+        # Return True when player has no legal complete turns.
         return not self.getLegalTurns(player)
 
     def getWinner(self, player):
-        """Return the opponent if player has lost, otherwise None."""
+        # Return the opponent if player has lost, otherwise None.
         if not self.isGameOver(player):
             return None
 
         return self.BLACK if player == self.WHITE else self.WHITE
 
     def getState(self):
-        """Return an immutable representation of the board."""
+        # Return an immutable representation of the board.
         return tuple(
             piece
             for row in self.board
             for piece in row
         )
 
-
+# Human Player Chooses Moves
 class HumanPlayer:
     def chooseTurn(self, board, player):
         legal_turns = board.getLegalTurns(player)
@@ -365,7 +363,7 @@ class HumanPlayer:
             except ValueError:
                 print("Please enter a number.")
 
-
+# Choose Moves at Random
 class RandomPlayer:
     def chooseTurn(self, board, player):
         legal_turns = board.getLegalTurns(player)
@@ -377,7 +375,7 @@ class RandomPlayer:
 
 
 class Game:
-    DRAW_REPETITIONS = 10
+    DRAW_REPETITIONS = 10 #how many times can something be repeated before a draw
 
     def __init__(self, board, WHITE_player, black_player, display=True):
         self.board = board
@@ -446,7 +444,7 @@ class Game:
                 break
 
 
-
+# Minimax Decides best move
 class MinimaxPlayer:
     def __init__(self, depth=6):
         self.depth = depth
@@ -534,7 +532,7 @@ class MinimaxPlayer:
         best_turn = legal_turns[0]
         opponent = Board.BLACK if player == Board.WHITE else Board.WHITE
 
-        if maximizing:
+        if maximizing: #maximazing
             max_eval = -math.inf
             for turn in legal_turns:
                 next_board = board.applyTurn(turn)
@@ -553,7 +551,7 @@ class MinimaxPlayer:
                 if beta <= alpha:
                     break
             return max_eval, best_turn
-        else:
+        else: #minimizing
             min_eval = math.inf
             for turn in legal_turns:
                 next_board = board.applyTurn(turn)
@@ -612,28 +610,31 @@ class MinimaxPlayer:
 
 
 def createGame():
-    choice = input("\nPick White, Black or Auto: ").strip().lower()
-
-    while choice not in {"white", "black", "auto"}:
-        print("Please enter White, Black or Auto.")
-        choice = input("\nPick White, Black or Auto: ").strip().lower()
+    choice = input("\nPick White, Black, Auto-Random or Auto-Minimax: ").strip().lower()
+    level = 0
+    while choice not in {"white", "black", "auto-random","auto-minimax"}:
+        choice = input("\nPick White, Black, Auto-Random or Auto-Minimax: ").strip().lower()
+    if choice == "white" or choice == "black" or choice == "auto-minimax":
+        level = int(input("\nWhat level of minimax? (1 is low 6 is high): "))
 
     
     board = Board(test_position=False)
 
     human = HumanPlayer()
     random_player = RandomPlayer()
-
+    minimax_player = MinimaxPlayer(level)
     if choice == "white":
         WHITE_player = human
-        black_player = random_player
+        black_player = minimax_player
     elif choice == "black":
-        WHITE_player = random_player
+        WHITE_player = minimax_player
         black_player = human
-    else:
+    elif choice == "auto-random":
         WHITE_player = random_player
         black_player = random_player
-
+    elif choice == "auto-minimax":
+        WHITE_player = minimax_player
+        black_player = minimax_player
     return Game(board, WHITE_player, black_player)
 
 def testGame():
@@ -642,6 +643,5 @@ def testGame():
     random_playerB = MinimaxPlayer(3)
     return Game(board, random_playerW, random_playerB)
 if __name__ == "__main__":
-    # game = createGame()
-    game = testGame()
+    game = createGame()
     game.play()
