@@ -8,16 +8,26 @@ class Board():
         self.redK = "R"
         self.blackK = "B"
         self.empty = "."
+        # self.board = [
+        #                 [".", "b", ".", "b", ".", "b", ".", "b"],
+        #                 ["b", ".", "b", ".", "b", ".", "b", "."],
+        #                 [".", "b", ".", "b", ".", "b", ".", "b"],
+        #                 [".", ".", ".", ".", ".", ".", ".", "."],
+        #                 [".", ".", ".", ".", ".", ".", ".", "."],
+        #                 ["r", ".", "r", ".", "r", ".", "r", "."],
+        #                 [".", "r", ".", "r", ".", "r", ".", "r"],
+        #                 ["r", ".", "r", ".", "r", ".", "r", "."],
+        #             ]
         self.board = [
-                        [".", "b", ".", "b", ".", "b", ".", "b"],
-                        ["b", ".", "b", ".", "b", ".", "b", "."],
-                        [".", "b", ".", "b", ".", "b", ".", "b"],
-                        [".", ".", ".", ".", ".", ".", ".", "."],
-                        [".", ".", ".", ".", ".", ".", ".", "."],
-                        ["r", ".", "r", ".", "r", ".", "r", "."],
-                        [".", "r", ".", "r", ".", "r", ".", "r"],
-                        ["r", ".", "r", ".", "r", ".", "r", "."],
-                    ]
+                                [".", "b", ".", "b", ".", "b", ".", "b"],
+                                ["b", ".", "b", ".", "b", ".", "b", "."],
+                                [".", "b", ".", "b", ".", "b", ".", "b"],
+                                [".", ".", "r", ".", ".", ".", ".", "."],
+                                [".", ".", ".", ".", ".", ".", ".", "."],
+                                ["r", ".", "r", ".", "r", ".", "r", "."],
+                                [".", ".", ".", ".", ".", "r", ".", "r"],
+                                ["r", ".", "r", ".", "r", ".", "r", "."],
+                            ]
     def printBoard(self):
         print("\n")
         print("  ",end ="")
@@ -33,12 +43,16 @@ class Board():
                     print("○ ", end="")
                 elif self.board[row][col] == 'r':
                     print("● ", end="")
+                elif self.board[row][col] == 'R':
+                    print("R ", end="")
+                elif self.board[row][col] == 'B':
+                    print("B ", end="")
     def getPiece(self,position):
 
     
         return self.board[position[0]][position[1]]
 
-    def movePiece(self, piecePos, movePos,legalMoves):
+    def movePiece(self, piecePos, movePos, legalMoves):
         piece = self.getPiece(piecePos)
 
         if piece in ('r', 'R'):
@@ -47,26 +61,38 @@ class Board():
             player = 'b'
         else:
             print("There is no piece there.")
-            return
-
+            return False
 
         if (piecePos, movePos) not in legalMoves:
             print("not a move")
-            return
+            return False
 
         # Move the piece
         self.board[piecePos[0]][piecePos[1]] = self.empty
 
-        # If it's a jump, remove the captured piece
+        # If it's a jump, remove captured piece
         if abs(piecePos[0] - movePos[0]) == 2:
             capturedRow = (piecePos[0] + movePos[0]) // 2
             capturedCol = (piecePos[1] + movePos[1]) // 2
-
             self.board[capturedRow][capturedCol] = self.empty
 
+        # Put piece in new position
         self.board[movePos[0]][movePos[1]] = piece
 
+        # Kinging
+        kinged = False
+
+        if piece == 'r' and movePos[0] == 0:
+            self.board[movePos[0]][movePos[1]] = 'R'
+            kinged = True
+
+        elif piece == 'b' and movePos[0] == 7:
+            self.board[movePos[0]][movePos[1]] = 'B'
+            kinged = True
+
         self.printBoard()
+
+        return kinged
     def getMovesFrom(self, position):
         piece = self.getPiece(position)
         moves = []
@@ -273,25 +299,157 @@ class Board():
                         moves.append(((row, col), move))
 
         return moves
-    def randOpp(self,player):
-        if player =='b':
-            legal = self.getLegalMoves('b')
-            rand = random.randint(0,len(legal)-1)
-            piecePos, movePos = legal[rand]
-            self.movePiece(piecePos,movePos,legal)
+    def continueJumps(self, movePos, kinged, randomMove=False):
+
+        while True:
+            jumps = self.getJumps(movePos)
+
+            # No more jumps
+            if not jumps:
+                break
+
+            jumpMoves = [(movePos, jump) for jump in jumps]
+
+            if randomMove:
+                # Computer randomly chooses the next jump
+                newMove = random.choice(jumps)
+            else:
+                # Human chooses the next jump
+                print("\nMore jumps available:")
+                print(*jumpMoves, sep="\n")
+
+                while True:
+                    try:
+                        newMove = tuple(
+                            map(int, input("\nJump to Where?: ").split())
+                        )
+                    except ValueError:
+                        print("Not Valid Move")
+                        continue
+
+                    if newMove not in jumps:
+                        print("Not a valid jump.")
+                        continue
+
+                    break
+
+            # Make the jump
+            kinged = self.movePiece(movePos, newMove, jumpMoves)
+
+            # Move the piece's current position
+            movePos = newMove
+
+            # Your current rules stop the jump sequence if the piece is kinged
+            if kinged:
+                break
+
+        return
+    def randOpp(self, player):
+        legal = self.getLegalMoves(player)
+
+        if not legal:
+            return False
+
+        # Pick a random legal first move
+        piecePos, movePos = random.choice(legal)
+
+        # Check if the first move is a jump
+        isJump = abs(piecePos[0] - movePos[0]) == 2
+
+        # Make the first move
+        kinged = self.movePiece(piecePos, movePos, legal)
+
+        # If it was a jump, continue jumping
+        if isJump:
+            self.continueJumps(movePos, kinged, randomMove=True)
+
+        return True
+    def makeTurn(self, player):
+        self.printBoard()
+
+        legalMoves = self.getLegalMoves(player)
+
+        if not legalMoves:
+            print(f"{player} has no legal moves.")
+            return False
+
+        print("\nLegal Moves:")
+        print(*legalMoves, sep="\n")
+
+        while True:
+            try:
+                piecePos = tuple(
+                    map(int, input("\nPick a Piece: ").split())
+                )
+                movePos = tuple(
+                    map(int, input("To Where?: ").split())
+                )
+
+                if (piecePos, movePos) not in legalMoves:
+                    print("Not a valid move.")
+                    continue
+
+                break
+
+            except ValueError:
+                print("Not Valid Move")
+
+        # Check whether the first move is a jump
+        isJump = abs(piecePos[0] - movePos[0]) == 2
+
+        # Make the first move
+        kinged = self.movePiece(piecePos, movePos, legalMoves)
+
+        # Continue the multiple jump
+        if isJump:
+            self.continueJumps(movePos, kinged, randomMove=False)
+
+        return True
+
     def startGame(self):
-        stop =False
-        playerColor = input("\nPick White or Black: ")
+        stop = False
+        playerColor = input("\nPick White, Black or Auto ")
+        turns =0
         while not stop:
 
             if playerColor == "White":
-                legal = self.getLegalMoves('r')
-                print("Legal Moves:")
-                print(*(self.getLegalMoves('r')), sep='\n')
-                piecePos = tuple(map(int, input("\nPick a Piece: ").split()))
-                movePos = tuple(map(int, input("\nTo Where?: ").split()))
-                myBoard.movePiece(piecePos, movePos,legal)
-                self.randOpp('b')
+                if not self.makeTurn('r'):
+                    print("\nBlack wins!")
+                    print(f"turns: {turns}")
+                    break
+
+                if not self.randOpp('b'):
+                    print("\nRed wins!")
+                    print(f"turns: {turns}")
+                    break
+                turns +=1
+            elif playerColor == "Black":
+                if not self.makeTurn('b'):
+                    print("\nRed wins!")
+                    print(f"turns: {turns}")
+                    break
+
+                if not self.randOpp('r'):
+                    print("\nBlack wins!")
+                    print(f"turns: {turns}")
+                    break
+                turns +=1
+            elif playerColor == 'Auto':
+                self.printBoard()
+
+                if not self.randOpp('r'):
+                    print("\nBlack wins!")
+                    print(f"turns: {turns}")
+                    break
+
+                if not self.randOpp('b'):
+                    print("\nRed wins!")
+                    print(f"turns: {turns}")
+                    break
+                turns +=1
+            else:
+                print("Please enter White or Black.")
+                playerColor = input("\nPick White or Black: ")
 
 
 
