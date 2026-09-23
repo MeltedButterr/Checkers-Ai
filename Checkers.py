@@ -1,5 +1,5 @@
 import random
-
+import math
 
 class Board:
     BOARD_SIZE = 8
@@ -53,8 +53,9 @@ class Board:
 
     def printBoard(self):
         print("\n")
-        print("   ", end="")
+        print("  ", end="")
         for col in range(self.BOARD_SIZE):
+
             print(f" {col}", end="")
 
         for row in range(self.BOARD_SIZE):
@@ -376,7 +377,7 @@ class RandomPlayer:
 
 
 class Game:
-    DRAW_REPETITIONS = 3
+    DRAW_REPETITIONS = 10
 
     def __init__(self, board, WHITE_player, black_player, display=True):
         self.board = board
@@ -446,6 +447,170 @@ class Game:
 
 
 
+class MinimaxPlayer:
+    def __init__(self, depth=6):
+        self.depth = depth
+
+    def evaluate(self, board, root_player):
+        PIECE_VAL = 100
+        KING_VAL = 175
+        CENTER_VAL = 15
+        BACK_ROW_VAL = 25
+        
+        score = 0
+        my_home_row = 7 if root_player == Board.WHITE else 0
+        opp_home_row = 0 if root_player == Board.WHITE else 7
+
+        my_pieces = []
+        opp_pieces = []
+
+        for row in range(Board.BOARD_SIZE):
+            for col in range(Board.BOARD_SIZE):
+                piece = board.board[row][col]
+                if piece == Board.EMPTY:
+                    continue
+                
+                is_mine = (piece in (Board.WHITE, Board.WHITE_KING)) if root_player == Board.WHITE else (piece in (Board.BLACK, Board.BLACK_KING))
+                is_king = piece in (Board.WHITE_KING, Board.BLACK_KING)
+                multiplier = 1 if is_mine else -1
+
+                if is_mine:
+                    my_pieces.append((row, col, is_king))
+                else:
+                    opp_pieces.append((row, col, is_king))
+                
+                # Material Value
+                score += (KING_VAL if is_king else PIECE_VAL) * multiplier
+                
+                # Center Control
+                if 2 <= col <= 5:
+                    score += CENTER_VAL * multiplier
+                    
+                # Back Row Protection
+                if not is_king:
+                    if is_mine and row == my_home_row:
+                        score += BACK_ROW_VAL
+                    elif not is_mine and row == opp_home_row:
+                        score -= BACK_ROW_VAL
+                        
+                # Promotion Progress
+                if not is_king:
+                    progress = (7 - row) * 5 if root_player == Board.WHITE else row * 5
+                    score += progress * multiplier
+
+        # Endgame King Convergence: Encourage Kings to close distance on enemy pieces
+        if opp_pieces:
+            for r, c, is_king in my_pieces:
+                if is_king:
+                    min_dist = min(abs(r - orow) + abs(c - ocol) for orow, ocol, _ in opp_pieces)
+                    score -= min_dist * 4  # Deduct points for being far away
+
+        return score
+
+    def minimax(self, board, depth, alpha, beta, maximizing, player, root_player, history_counts):
+        state_key = (player, board.getState())
+        
+        # 1. Detect state repetitions (penalize shuffling)
+        if history_counts.get(state_key, 0) >= 2:
+            return 0, None  # Treat repeated state as a 0-value draw
+
+        # 2. Terminal Game Over check
+        if board.isGameOver(player):
+            winner = board.getWinner(player)
+            if winner == root_player:
+                return 100000 + depth, None
+            elif winner is not None:
+                return -100000 - depth, None
+            else:
+                return 0, None
+
+        if depth == 0:
+            return self.evaluate(board, root_player), None
+
+        legal_turns = board.getLegalTurns(player)
+        if not legal_turns:
+            return self.evaluate(board, root_player), None
+
+        best_turn = legal_turns[0]
+        opponent = Board.BLACK if player == Board.WHITE else Board.WHITE
+
+        if maximizing:
+            max_eval = -math.inf
+            for turn in legal_turns:
+                next_board = board.applyTurn(turn)
+                next_state = (opponent, next_board.getState())
+                
+                history_counts[next_state] = history_counts.get(next_state, 0) + 1
+                eval_score, _ = self.minimax(next_board, depth - 1, alpha, beta, False, opponent, root_player, history_counts)
+                history_counts[next_state] -= 1
+                if history_counts[next_state] == 0:
+                    del history_counts[next_state]
+
+                if eval_score > max_eval:
+                    max_eval = eval_score
+                    best_turn = turn
+                alpha = max(alpha, eval_score)
+                if beta <= alpha:
+                    break
+            return max_eval, best_turn
+        else:
+            min_eval = math.inf
+            for turn in legal_turns:
+                next_board = board.applyTurn(turn)
+                next_state = (opponent, next_board.getState())
+                
+                history_counts[next_state] = history_counts.get(next_state, 0) + 1
+                eval_score, _ = self.minimax(next_board, depth - 1, alpha, beta, True, opponent, root_player, history_counts)
+                history_counts[next_state] -= 1
+                if history_counts[next_state] == 0:
+                    del history_counts[next_state]
+
+                if eval_score < min_eval:
+                    min_eval = eval_score
+                    best_turn = turn
+                beta = min(beta, eval_score)
+                if beta <= alpha:
+                    break
+            return min_eval, best_turn
+    def chooseTurn(self, board, player, game_history=None):
+        history_counts = dict(game_history) if game_history else {}
+        legal_turns = board.getLegalTurns(player)
+        
+        if not legal_turns:
+            return None
+
+        best_turns = []
+        max_eval = -math.inf
+        alpha = -math.inf
+        beta = math.inf
+        opponent = Board.BLACK if player == Board.WHITE else Board.WHITE
+
+        for turn in legal_turns:
+            next_board = board.applyTurn(turn)
+            next_state = (opponent, next_board.getState())
+            
+            history_counts[next_state] = history_counts.get(next_state, 0) + 1
+            
+            # Pass active alpha and beta bounds to preserve pruning
+            eval_score, _ = self.minimax(
+                next_board, self.depth - 1, alpha, beta, False, opponent, player, history_counts
+            )
+            
+            history_counts[next_state] -= 1
+            if history_counts[next_state] == 0:
+                del history_counts[next_state]
+
+            if eval_score > max_eval:
+                max_eval = eval_score
+                best_turns = [turn]
+                alpha = max(alpha, eval_score)  # Update alpha to maintain pruning speed
+            elif eval_score == max_eval:
+                best_turns.append(turn)
+
+        return random.choice(best_turns) # Randomly Selects the 'best' move if scores are equal
+
+
+
 def createGame():
     choice = input("\nPick White, Black or Auto: ").strip().lower()
 
@@ -453,8 +618,7 @@ def createGame():
         print("Please enter White, Black or Auto.")
         choice = input("\nPick White, Black or Auto: ").strip().lower()
 
-    # Keep the custom position enabled for multi-jump development/testing.
-    # Set test_position=False here when you want the standard starting board.
+    
     board = Board(test_position=False)
 
     human = HumanPlayer()
@@ -474,8 +638,8 @@ def createGame():
 
 def testGame():
     board = Board(test_position=False)
-    random_playerW = RandomPlayer()
-    random_playerB = RandomPlayer()
+    random_playerW = MinimaxPlayer(1)
+    random_playerB = MinimaxPlayer(3)
     return Game(board, random_playerW, random_playerB)
 if __name__ == "__main__":
     # game = createGame()
