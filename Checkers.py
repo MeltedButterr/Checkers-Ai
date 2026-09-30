@@ -450,58 +450,219 @@ class MinimaxPlayer:
         self.depth = depth
 
     def evaluate(self, board, root_player):
+
         PIECE_VAL = 100
         KING_VAL = 175
         CENTER_VAL = 15
         BACK_ROW_VAL = 25
-        
+        PROGRESS_VAL = 5
+        KING_DISTANCE_VAL = 4
+
         score = 0
-        my_home_row = 7 if root_player == Board.WHITE else 0
-        opp_home_row = 0 if root_player == Board.WHITE else 7
 
         my_pieces = []
         opp_pieces = []
 
         for row in range(Board.BOARD_SIZE):
             for col in range(Board.BOARD_SIZE):
+
                 piece = board.board[row][col]
+
                 if piece == Board.EMPTY:
                     continue
-                
-                is_mine = (piece in (Board.WHITE, Board.WHITE_KING)) if root_player == Board.WHITE else (piece in (Board.BLACK, Board.BLACK_KING))
-                is_king = piece in (Board.WHITE_KING, Board.BLACK_KING)
-                multiplier = 1 if is_mine else -1
+
+                # -----------------------------------------
+                # Determine actual piece owner.
+                # -----------------------------------------
+
+                if piece in (
+                    Board.WHITE,
+                    Board.WHITE_KING
+                ):
+                    piece_player = Board.WHITE
+
+                else:
+                    piece_player = Board.BLACK
+
+                is_mine = (
+                    piece_player == root_player
+                )
+
+                is_king = piece in (
+                    Board.WHITE_KING,
+                    Board.BLACK_KING
+                )
+
+                multiplier = (
+                    1 if is_mine else -1
+                )
 
                 if is_mine:
-                    my_pieces.append((row, col, is_king))
-                else:
-                    opp_pieces.append((row, col, is_king))
-                
-                # Material Value
-                score += (KING_VAL if is_king else PIECE_VAL) * multiplier
-                
-                # Center Control
-                if 2 <= col <= 5:
-                    score += CENTER_VAL * multiplier
-                    
-                # Back Row Protection
-                if not is_king:
-                    if is_mine and row == my_home_row:
-                        score += BACK_ROW_VAL
-                    elif not is_mine and row == opp_home_row:
-                        score -= BACK_ROW_VAL
-                        
-                # Promotion Progress
-                if not is_king:
-                    progress = (7 - row) * 5 if root_player == Board.WHITE else row * 5
-                    score += progress * multiplier
 
-        # Endgame King Convergence: Encourage Kings to close distance on enemy pieces
-        if opp_pieces:
-            for r, c, is_king in my_pieces:
+                    my_pieces.append(
+                        (
+                            row,
+                            col,
+                            is_king
+                        )
+                    )
+
+                else:
+
+                    opp_pieces.append(
+                        (
+                            row,
+                            col,
+                            is_king
+                        )
+                    )
+
+                # =========================================
+                # MATERIAL
+                # =========================================
+
                 if is_king:
-                    min_dist = min(abs(r - orow) + abs(c - ocol) for orow, ocol, _ in opp_pieces)
-                    score -= min_dist * 4  # Deduct points for being far away
+
+                    score += (
+                        KING_VAL
+                        * multiplier
+                    )
+
+                else:
+
+                    score += (
+                        PIECE_VAL
+                        * multiplier
+                    )
+
+                # =========================================
+                # CENTER CONTROL
+                # =========================================
+
+                if (
+                    2 <= row <= 5
+                    and
+                    2 <= col <= 5
+                ):
+
+                    score += (
+                        CENTER_VAL
+                        * multiplier
+                    )
+
+                # =========================================
+                # NORMAL PIECE FEATURES
+                # =========================================
+
+                if not is_king:
+
+                    # -------------------------------------
+                    # Back row protection.
+                    # -------------------------------------
+
+                    if (
+                        piece_player == Board.WHITE
+                        and row == 7
+                    ):
+
+                        score += (
+                            BACK_ROW_VAL
+                            * multiplier
+                        )
+
+                    elif (
+                        piece_player == Board.BLACK
+                        and row == 0
+                    ):
+
+                        score += (
+                            BACK_ROW_VAL
+                            * multiplier
+                        )
+
+                    # -------------------------------------
+                    # Promotion progress.
+                    #
+                    # IMPORTANT:
+                    # Calculate this according to the
+                    # PIECE'S COLOR, not root_player.
+                    # -------------------------------------
+
+                    if piece_player == Board.WHITE:
+
+                        progress = (
+                            7 - row
+                        )
+
+                    else:
+
+                        progress = row
+
+                    score += (
+                        progress
+                        * PROGRESS_VAL
+                        * multiplier
+                    )
+
+        # =============================================
+        # KING CONVERGENCE
+        # =============================================
+
+        # Reward MY kings for getting closer to
+        # opponent pieces.
+
+        if opp_pieces:
+
+            for row, col, is_king in my_pieces:
+
+                if not is_king:
+                    continue
+
+                distance = min(
+                    abs(row - enemy_row)
+                    +
+                    abs(col - enemy_col)
+
+                    for (
+                        enemy_row,
+                        enemy_col,
+                        _
+                    ) in opp_pieces
+                )
+
+                score -= (
+                    distance
+                    * KING_DISTANCE_VAL
+                )
+
+        # Do the opposite for enemy kings.
+        #
+        # This is necessary to keep the evaluation
+        # zero-sum / symmetric.
+
+        if my_pieces:
+
+            for row, col, is_king in opp_pieces:
+
+                if not is_king:
+                    continue
+
+                distance = min(
+                    abs(row - my_row)
+                    +
+                    abs(col - my_col)
+
+                    for (
+                        my_row,
+                        my_col,
+                        _
+                    ) in my_pieces
+                )
+
+                score += (
+                    distance
+                    * KING_DISTANCE_VAL
+                )
 
         return score
 
